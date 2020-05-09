@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import ApiResponses from '../db/models/apiResponses/collection';
 export default async function RequestLogger(req: Request, res: Response, next: NextFunction): Promise<void> {
   const { rawHeaders, ip, body, originalUrl, method } = req;
+  console.log(originalUrl, body, 'req');
   try {
     const doc = new ApiResponses({
       url: originalUrl,
@@ -12,7 +13,7 @@ export default async function RequestLogger(req: Request, res: Response, next: N
       pid: process.pid,
       processingTime: new Date(),
     });
-    await doc.save();
+    doc.save();
     next();
   } catch (error) {
     next();

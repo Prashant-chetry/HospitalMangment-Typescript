@@ -75,6 +75,7 @@ const userSchema = new Schema(
     password: {
       type: String,
       minlength: 10,
+      maxlength: 100,
     },
     profile: {
       name: {

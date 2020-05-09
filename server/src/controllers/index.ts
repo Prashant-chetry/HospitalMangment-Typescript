@@ -25,11 +25,12 @@ class MainServerApp {
     this.server = express();
     dotenv.config();
     this.PORT = parseInt(process.env.PORT || '8080', 10);
-    this.startServer();
     this.initializeMongoDbConnect();
     this.initializeMiddleWare();
-    this.initializeSocketIo();
     this.initializeRoutesMiddle();
+    this.initializeErrorMiddleWare();
+    this.initializeSocketIo();
+    this.startServer();
   }
   private startServer(): void {
     this.httpServer = new Server(this.server);
@@ -48,8 +49,10 @@ class MainServerApp {
         methods: 'GET,,PUT,PATCH,POST,DELETE',
       }),
     );
-    this.server.use(GlobalErrorHandler);
     this.server.use(RequestLogger);
+  }
+  private initializeErrorMiddleWare(): void {
+    this.server.use(GlobalErrorHandler);
   }
   private initializeRoutesMiddle(): void {
     this.server.use('/api/auth', AuthRouter);

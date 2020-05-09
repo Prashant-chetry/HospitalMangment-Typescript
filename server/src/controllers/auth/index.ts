@@ -41,7 +41,7 @@ class Authentication implements IAuthenticationController {
       console.log(err);
       return next(new HttpError());
     }
-    return res.status(200).json({ success: true, message: 'successfully login', accessToken });
+    return res.status(200).json({ success: true, message: 'successfully login', accessToken, userId: uDoc?._id });
   };
   public signUp = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
     if (isEmpty(req.body || {})) return next(new HttpError(false, 500, 'Bad Request'));
@@ -54,7 +54,7 @@ class Authentication implements IAuthenticationController {
     console.log(uDoc, 'userDoc');
     if (!isEmpty(uDoc || {})) {
       console.log('error', isEmpty(uDoc || {}));
-      return next(new HttpError(false, 500, 'User already exists'));
+      return next(new HttpError(false, 500, 'user already exists'));
     }
     try {
       const doc: IUsers = new Users({

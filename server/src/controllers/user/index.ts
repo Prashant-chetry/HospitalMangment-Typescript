@@ -1,15 +1,16 @@
+/* eslint-disable @typescript-eslint/interface-name-prefix */
 import { Request, Response, NextFunction } from 'express';
 import util from 'util';
 
 import IUserController from './interface';
 import isEmpty from '../../common/isEmpty';
 import HttpError from '../../common/httpError';
-import IUsers, { IUserProfileName, IUsersProfile, IUsersEmail, IUsersPhone } from '../../db/models/users/interface';
+import IUsers, { IUsersProfileName, IUsersProfile, IUsersEmail, IUsersPhone } from '../../db/models/users/interface';
 import Users from '../../db/models/users/collection';
 import { Socket } from 'socket.io';
-// eslint-disable-next-line @typescript-eslint/interface-name-prefix
+
 interface IReqBody {
-  name: IUserProfileName;
+  name: IUsersProfileName;
   panid: IUsersProfile['panid'];
   aadharNo: IUsersProfile['aadharId'];
   emails: Array<IUsersEmail['address']>;
@@ -18,12 +19,24 @@ interface IReqBody {
   mobileNos: Array<IUsersPhone['number']>;
   gender: IUsersProfile['gender'];
 }
-
+interface IUserDataValidation {
+  firstName: IUsersProfileName['first'];
+  lastName: IUsersProfileName['last'];
+  middleName: IUsersProfileName['middle'];
+  gender: IUsersProfile['gender'];
+  panid: IUsersProfile['panid'];
+  aadharNo: IUsersProfile['aadharId'];
+  emails: Array<IUsersEmail['address']>;
+  dob: IUsersProfile['dob'];
+  martialStatus: IUsersProfile['martialStatus'];
+  mobileNos: Array<IUsersPhone['number']>;
+  role: IUsers['role'];
+}
 class User implements IUserController {
   private user: IUsers | undefined;
   private body: Request['body'];
   private params: Request['params'] | undefined;
-  public profileAddEditExisting = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
+  public profileAdd = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
     if (isEmpty(req.user || {})) return next(new HttpError(false, 402, 'unauthorized'));
     this.user = req.user as IUsers;
     this.body = req.body;
@@ -63,13 +76,14 @@ class User implements IUserController {
     }
   };
   public profileById = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
-    if (!isEmpty(req.user || {})) return next(new HttpError(false, 402, 'unauthorized'));
+    if (isEmpty(req.user || {})) return next(new HttpError(false, 402, 'unauthorized'));
     this.user = req.user as IUsers;
     this.params = req.params;
     if (!this.params.id) return next(new HttpError(false, 402, 'No id provided'));
     try {
-      this.user = (await Users.findById(this.params.id).exec()) || undefined;
+      this.user = (await Users.findById(this.params.id).select({ password: 0, tokens: 0 }).exec()) || undefined;
       if (isEmpty(this.user || {})) return next(new HttpError(false, 400, 'user not found'));
+      console.log(this.user?.toJSON());
       return res.status(200).json({ success: true, message: 'user found', data: this.user?.toJSON() });
     } catch (error) {
       next(new HttpError());
@@ -89,18 +103,26 @@ class User implements IUserController {
       if (isEmpty(doc || {})) return next(new HttpError(false, 400, 'user not found'));
       this.body = req.body;
       this.user = req.user as IUsers;
-      const { name, aadharNo, mobileNo, martialStatus, panid, email, gender, dob }: IReqBody = this.body;
+      const { name, aadharNo, mobileNos, martialStatus, panid, emails, gender, dob }: IReqBody = this.body;
       if (!isEmpty(this.body.name || {})) ((doc || {}).profile || {}).name = name;
       if (aadharNo) ((doc || {}).profile || {}).aadharId = aadharNo;
       if (panid) ((doc || {}).profile || {}).panid = panid;
       if (gender) ((doc || {}).profile || {}).gender = gender;
       if (martialStatus) ((doc || {}).profile || {}).martialStatus = martialStatus;
       if (dob) ((doc || {}).profile || {}).dob = new Date(dob);
-      if (email) (doc || {}).emails?.push({ address: email, verified: false });
-      if (mobileNo) (doc || {}).phones?.push({ number: mobileNo, verified: false });
+      if (emails.length)
+        emails.forEach((email) => {
+          doc?.emails.push({ address: email, verified: false });
+        });
+      if (mobileNos.length)
+        mobileNos.forEach((mobile) => {
+          doc?.phones?.push({ number: mobile, verified: false });
+        });
       if (!doc?.isModified()) return res.status(200).json({ success: true, message: "User data don't update" });
       doc.updatedBy = this.user._id;
       await doc.save();
+      console.log(doc);
+      return res.status(200).json({ success: true, message: 'user update successfully' });
     } catch (error) {
       return next(new HttpError());
     }

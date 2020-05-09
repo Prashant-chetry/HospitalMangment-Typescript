@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/interface-name-prefix */
 import { Document } from 'mongoose';
 
-export interface IUserProfileName {
+export interface IUsersProfileName {
   first?: string;
   middle?: string;
   last?: string;
 }
 export interface IUsersProfile {
-  name?: IUserProfileName;
+  name?: IUsersProfileName;
   dob?: Date;
   gender?: 'f' | 'm';
   martialStatus?: string;
