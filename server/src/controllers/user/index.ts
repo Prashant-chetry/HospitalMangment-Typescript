@@ -8,6 +8,7 @@ import HttpError from '../../common/httpError';
 import IUsers, { IUsersProfileName, IUsersProfile, IUsersEmail, IUsersPhone } from '../../db/models/users/interface';
 import Users from '../../db/models/users/collection';
 import { Socket } from 'socket.io';
+import UserDataValidation from './validation';
 
 interface IReqBody {
   name: IUsersProfileName;
@@ -96,7 +97,8 @@ class User implements IUserController {
     return res.status(200).json({ success: true, message: 'user list', data: JSON.stringify(docs) });
   };
   public profileEditById = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
-    if (req.params.id) return next(new HttpError());
+    console.log(req.params.id, 'edit ');
+    if (!req.params.id) return next(new HttpError());
     if (isEmpty(req.body)) return next(new HttpError(false, 500, 'Bad Request'));
     try {
       const doc = await Users.findById(req.params.id).exec();
@@ -104,26 +106,41 @@ class User implements IUserController {
       this.body = req.body;
       this.user = req.user as IUsers;
       const { name, aadharNo, mobileNos, martialStatus, panid, emails, gender, dob }: IReqBody = this.body;
+      try {
+        const userValidate = new UserDataValidation();
+        await userValidate.validateName(name);
+        if (aadharNo) await userValidate.validateAadharNo(aadharNo);
+        if (emails?.[0]?.length) await userValidate.validateEmails(emails);
+        if (martialStatus) await userValidate.validateMartialStatus(martialStatus);
+        if (panid) await userValidate.validatePanid(panid);
+        if (gender) await userValidate.validateGender(gender);
+        if (dob) await userValidate.validateDob(dob);
+        if (mobileNos?.[0]?.length) await userValidate.validatePhones(mobileNos);
+      } catch (error) {
+        console.log(error);
+        return next(new HttpError(false, 500, 'Bad Request'));
+      }
       if (!isEmpty(this.body.name || {})) ((doc || {}).profile || {}).name = name;
       if (aadharNo) ((doc || {}).profile || {}).aadharId = aadharNo;
       if (panid) ((doc || {}).profile || {}).panid = panid;
       if (gender) ((doc || {}).profile || {}).gender = gender;
       if (martialStatus) ((doc || {}).profile || {}).martialStatus = martialStatus;
       if (dob) ((doc || {}).profile || {}).dob = new Date(dob);
-      if (emails.length)
-        emails.forEach((email) => {
-          doc?.emails.push({ address: email, verified: false });
-        });
-      if (mobileNos.length)
-        mobileNos.forEach((mobile) => {
-          doc?.phones?.push({ number: mobile, verified: false });
-        });
+      if (emails?.[0]?.length) {
+        const nEmails: Array<IUsersEmail> = emails.map((i) => ({ verified: false, address: i }));
+        if (nEmails.length) doc?.set('emails', nEmails);
+      }
+      if (mobileNos?.[0]?.length) {
+        const nMobile: Array<IUsersPhone> = mobileNos.map((i) => ({ number: i, verified: false }));
+        if (nMobile.length) doc?.set('phones', nMobile);
+      }
       if (!doc?.isModified()) return res.status(200).json({ success: true, message: "User data don't update" });
       doc.updatedBy = this.user._id;
       await doc.save();
       console.log(doc);
       return res.status(200).json({ success: true, message: 'user update successfully' });
     } catch (error) {
+      console.log(error);
       return next(new HttpError());
     }
   };
